@@ -4,12 +4,16 @@ import os
 from random import shuffle, seed as sd, sample
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
 
-def classification_dict(source_dir):
+def classification_dict(source_dir,*args):
     file_names=os.listdir(source_dir)
     dictionary={}
     for f in file_names:
-        label=f.split(" ")[0]
+        if "subclasses" in args:
+            label=f.split("_")[0]
+        else:
+            label=f.split(" ")[0]
         if label in dictionary:
             dictionary[label].append(f)
         else:
@@ -106,6 +110,27 @@ def load_model(source_dir, file_name,*args,**kwargs):
 def compiled_model(model,optimiser,loss_func,*args):
     model.compile(optimizer=optimiser, loss=loss_func, metrics=list(args))
 
+def plot_train_val(train_stats,val_stats,*args,**kwargs):
+    epochs=[i for i in range(len(train_stats))]
+    fig = plt.figure()
+    plt.plot(epochs,train_stats,'b')
+    plt.plot(epochs,val_stats,'g')
+    plt.xlabel("EPOCHS")
+    plt.ylabel("ACCURACY")
+    if "model_name" in kwargs:
+        plt.title(kwargs["model_name"])
+    if "save_dir" in kwargs:
+        if "model_name" in kwargs:
+            fig.savefig(kwargs["save_dir"]+"\\"+kwargs["model_name"]+".png")
+
+# TEST
+save_dir="C:\\Users\\the_n\\Documents\\PhD Stuff\\Paper Writing\\First Paper"
+train=[0.5,0.6,0.7,0.8]
+val=[0.7,0.7,0.7,0.8]
+
+
+plot_train_val(train,val,"show",model_name="MODEL A",save_dir=save_dir)
+
 def batch_train_model(model,source_dir,ioTR,ioV,batch_size,steps,epochs,*args,**kwargs):
     epoch=1
     train_history=[]
@@ -134,48 +159,23 @@ def batch_train_model(model,source_dir,ioTR,ioV,batch_size,steps,epochs,*args,**
             step+=1
         # ACTIONS TO DO AT END OF EPOCH
         if "timer" in args:
-            print("Epoch duration:", default_timer()-epoch_start)
+            print("Epoch duration:", str((default_timer()-epoch_start)/60)[:4],"minutes")
         if "val_acc" in args:
             print("Testing on Validation Set")
             val_score = model.evaluate(val_data, np.array(list(val_list.values())) , verbose=1)
-            print("Accuracy on Validation Set:", val_score[1])
+            print("Accuracy on Validation Set:", str(val_score[1])[:6])
             if "save_best" in kwargs:
-                if val_score[1]>best_val:
-                    best_val=val_score[1]
-                    save_model(kwargs["save_best"],"EPOCH_"+str(epoch)+" (val_acc="+str(best_val)[:6]+")",model,"weights_only")
+                if val_score[1]>=best_val:
+                    save_model(kwargs["save_best"],"EPOCH_"+str(epoch)+" (val_acc="+str(val_score[1])[:6]+")",model,"weights_only")
         epoch+=1
 
     save_model(kwargs["save_best"],"FINAL MODEL (val_acc="+str(val_score[1])[:6]+")",model,"weights_only")
 
-        # PRINT ACCURACY ON CURRENT EPOCH?
-        # CALC ACCURACY ON VALIDATION SET
+    #print(epoch_history)
+    #print(train_history)
 
     # STUFF TO DO AT END OF TRAINING
         # MAKE PLOT
     if "timer" in args:
-        print("Training duration:",default_timer()-start)
+        print("Training duration:",str((default_timer()-start)//60)[:4],"minutes")
 
-import cv2
-def test_model(ioTT,model,source_dir,*args,**kwargs):
-    if "exceptions_dir" in kwargs:
-        from os import mkdir,listdir
-        from shutil import copy
-        if "test_misclassifications" not in listdir(kwargs["exceptions_dir"]):
-            mkdir(kwargs["exceptions_dir"]+"\\"+"test_misclassifications")
-    score=0
-    for io in ioTT:
-        if "greyscale" in args:
-            input_array=np.expand_dims(np.array([np.array(cv2.imread(source_dir+"\\"+io))[:,:,0]]),-1)/255
-        else:
-            input_array=np.array(cv2.imread(source_dir+"\\"+io))
-        layers=layer_names(model)
-        vector=list(model.predict(input_array)[0])
-        class_guess=vector.index(max(vector))
-        true_class=list(ioTT[io]).index(1)
-        if "exceptions_dir" in kwargs:
-            if class_guess!=true_class:
-                copy(source_dir+"\\"+io,kwargs["exceptions_dir"]+"\\"+"test_misclassifications"+"\\"+str(io[:-4])+" T="+str(true_class)+" G="+str(class_guess)+".jpg")
-            else:
-                score+=1
-    accuracy=score/len(ioTT)
-    print(accuracy)
