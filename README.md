@@ -1,4 +1,4 @@
-# dl_pipeline
+# cnn_pipeline
 
 The Deep Learning pipeline for image classification uses and adds to the function already written in the other repositories (namely image_toolbox, augmentation, network_structure and model analysis). The new functions added are split into how they are applied chronologically in the pipeline
 
